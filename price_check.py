@@ -1,9 +1,9 @@
 import requests
-from bs4 import BeautifulSoup
 import os
 import json
 
-URL = "https://showerbloom.co.za/products/handheld-filtered-showerhead"
+# Shopify JSON endpoint for the product
+URL = "https://showerbloom.co.za/products/handheld-filtered-showerhead.json"
 PRICE_FILE = "last_price.json"
 
 # Load last price
@@ -13,37 +13,28 @@ if os.path.exists(PRICE_FILE):
 else:
     last_price = None
 
-# Fetch page
-headers = {"User-Agent": "Mozilla/5.0"}
-res = requests.get(URL, headers=headers)
-soup = BeautifulSoup(res.text, "html.parser")
+# Fetch product JSON
+res = requests.get(URL)
+data = res.json()
 
-# Extract price from JSON-LD
-price = None
-for script in soup.find_all("script", type="application/ld+json"):
-    data = json.loads(script.string)
-    try:
-        price = float(data["offers"]["price"])
-        break
-    except:
-        continue
+# Get current price (in cents)
+price_cents = data["product"]["variants"][0]["price"]  # price in ZAR
+current_price = float(price_cents)
 
-if price is None:
-    print("Price not found")
-    exit()
+print(f"Current price: R{current_price}")
 
-print(f"Current price: R{price}")
-
-# Compare and update
-if last_price is None or price < last_price:
+# Compare and send email if first run or price dropped
+if last_price is None or current_price < last_price:
     # Send email via Resend
     import requests
     email_data = {
         "from": "Price Tracker <noreply@resend.dev>",
         "to": [os.environ["EMAIL_TO"]],
-        "subject": f"Price Alert: R{price} on Showerbloom",
-        "html": f"<p>The Showerbloom showerhead price is now <strong>R{price}</strong>.</p><p>Link: <a href='{URL}'>Product Page</a></p>"
+        "subject": f"Price Alert: R{current_price} on Showerbloom",
+        "html": f"<p>The Showerbloom showerhead price is now <strong>R{current_price}</strong>.</p>"
+                f"<p>Link: <a href='https://showerbloom.co.za/products/handheld-filtered-showerhead'>Product Page</a></p>"
     }
+
     r = requests.post(
         "https://api.resend.com/emails",
         headers={
@@ -52,8 +43,12 @@ if last_price is None or price < last_price:
         },
         json=email_data
     )
-    print("Email sent" if r.status_code == 200 else r.text)
 
-# Save current price
+    if r.status_code == 200:
+        print("Email sent successfully.")
+    else:
+        print("Error sending email:", r.text)
+
+# Save current price for next run
 with open(PRICE_FILE, "w") as f:
-    json.dump({"price": price}, f)
+    json.dump({"price": current_price}, f)
