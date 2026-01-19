@@ -1,0 +1,27 @@
+name: Showerbloom Price Check
+
+on:
+  schedule:
+    - cron: '0 9 * * *' # every day at 9am UTC
+  workflow_dispatch: # allows manual run
+
+jobs:
+  price-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y python3-pip
+        pip3 install requests beautifulsoup4
+
+    - name: Run price checker
+      env:
+        RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        EMAIL_TO: ${{ secrets.EMAIL_TO }}
+      run: |
+        python3 price_check.py
