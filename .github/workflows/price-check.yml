@@ -6,6 +6,9 @@ on:
   workflow_dispatch: # manual trigger only
   # IMPORTANT: no "push" trigger
 
+permissions:
+  contents: write
+
 jobs:
   price-check:
     runs-on: ubuntu-latest
