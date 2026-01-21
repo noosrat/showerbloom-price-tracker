@@ -1,8 +1,8 @@
 import requests
 import os
 import json
+import sys
 
-# Shopify JSON endpoint for the product
 URL = "https://showerbloom.co.za/products/handheld-filtered-showerhead.json"
 PRICE_FILE = "last_price.json"
 
@@ -17,22 +17,22 @@ else:
 res = requests.get(URL)
 data = res.json()
 
-# Get current price (in cents)
-price_cents = data["product"]["variants"][0]["price"]  # price in ZAR
-current_price = float(price_cents)
-
+current_price = float(data["product"]["variants"][0]["price"])
 print(f"Current price: R{current_price}")
 
-# Compare and send email if first run or price dropped
-if last_price is None or current_price < last_price:
-    # Send email via Resend
-    import requests
+price_dropped = last_price is not None and current_price < last_price
+first_run = last_price is None
+
+# Send email only if first run OR price dropped
+if first_run or price_dropped:
     email_data = {
         "from": "Price Tracker <noreply@resend.dev>",
         "to": [os.environ["EMAIL_TO"]],
         "subject": f"Price Alert: R{current_price} on Showerbloom",
-        "html": f"<p>The Showerbloom showerhead price is now <strong>R{current_price}</strong>.</p>"
-                f"<p>Link: <a href='https://showerbloom.co.za/products/handheld-filtered-showerhead'>Product Page</a></p>"
+        "html": f"""
+        <p>The Showerbloom showerhead price is now <strong>R{current_price}</strong>.</p>
+        <p><a href="https://showerbloom.co.za/products/handheld-filtered-showerhead">View product</a></p>
+        """
     }
 
     r = requests.post(
@@ -44,11 +44,14 @@ if last_price is None or current_price < last_price:
         json=email_data
     )
 
-    if r.status_code == 200:
-        print("Email sent successfully.")
-    else:
-        print("Error sending email:", r.text)
+    print("Email sent" if r.status_code == 200 else r.text)
 
-# Save current price for next run
-with open(PRICE_FILE, "w") as f:
-    json.dump({"price": current_price}, f)
+# Only update file if price changed or first run
+if first_run or current_price != last_price:
+    with open(PRICE_FILE, "w") as f:
+        json.dump({"price": current_price}, f)
+    print("Price file updated")
+    sys.exit(10)  # signal to workflow that we should commit
+else:
+    print("No price change")
+    sys.exit(0)
