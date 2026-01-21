@@ -1,27 +1,17 @@
-name: Showerbloom Price Check
+- name: Run price checker
+  id: pricecheck
+  env:
+    RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+    EMAIL_TO: ${{ secrets.EMAIL_TO }}
+  run: |
+    python3 price_check.py
+  continue-on-error: true
 
-on:
-  schedule:
-    - cron: '0 9 * * *' # every day at 9am UTC
-  workflow_dispatch: # allows manual run
-
-jobs:
-  price-check:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout repo
-      uses: actions/checkout@v3
-
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y python3-pip
-        pip3 install requests beautifulsoup4
-
-    - name: Run price checker
-      env:
-        RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-        EMAIL_TO: ${{ secrets.EMAIL_TO }}
-      run: |
-        python3 price_check.py
+- name: Commit price update
+  if: steps.pricecheck.outcome == 'failure'
+  run: |
+    git config user.name "github-actions[bot]"
+    git config user.email "github-actions[bot]@users.noreply.github.com"
+    git add last_price.json
+    git commit -m "Update last tracked price"
+    git push
