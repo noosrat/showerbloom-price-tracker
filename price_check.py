@@ -3,7 +3,7 @@ import os
 import json
 import sys
 
-URL = "https://showerbloom.co.za/products/handheld-filtered-showerhead.json"
+URL = "https://showerbloom.co.za/products/bloom-replacement-filter-3-months-of-purity.json"
 PRICE_FILE = "last_price.json"
 
 # Load last price
@@ -13,7 +13,6 @@ if os.path.exists(PRICE_FILE):
 else:
     last_price = None
 
-# Fetch product JSON
 res = requests.get(URL)
 data = res.json()
 
@@ -23,15 +22,14 @@ print(f"Current price: R{current_price}")
 price_dropped = last_price is not None and current_price < last_price
 first_run = last_price is None
 
-# Send email only if first run OR price dropped
 if first_run or price_dropped:
     email_data = {
         "from": "Price Tracker <noreply@resend.dev>",
         "to": [os.environ["EMAIL_TO"]],
-        "subject": f"Price Alert: R{current_price} on Showerbloom",
+        "subject": f"Filter Price Alert: R{current_price}",
         "html": f"""
-        <p>The Showerbloom showerhead price is now <strong>R{current_price}</strong>.</p>
-        <p><a href="https://showerbloom.co.za/products/handheld-filtered-showerhead">View product</a></p>
+        <p>The ShowerBloom replacement filter price is now <strong>R{current_price}</strong>.</p>
+        <p><a href="https://showerbloom.co.za/products/bloom-replacement-filter-3-months-of-purity">View product</a></p>
         """
     }
 
@@ -46,12 +44,11 @@ if first_run or price_dropped:
 
     print("Email sent" if r.status_code == 200 else r.text)
 
-# Only update file if price changed or first run
 if first_run or current_price != last_price:
     with open(PRICE_FILE, "w") as f:
         json.dump({"price": current_price}, f)
     print("Price file updated")
-    sys.exit(10)  # signal to workflow that we should commit
+    sys.exit(10)
 else:
     print("No price change")
     sys.exit(0)
